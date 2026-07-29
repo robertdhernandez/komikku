@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.ui.reader
 
 import android.app.Application
+import android.graphics.Bitmap
 import android.net.Uri
 import androidx.annotation.ColorInt
 import androidx.annotation.IntRange
@@ -75,6 +76,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import logcat.LogPriority
+import okio.Buffer
 import tachiyomi.core.common.preference.toggle
 import tachiyomi.core.common.storage.UniFileTempFileManager
 import tachiyomi.core.common.util.lang.launchIO
@@ -1292,7 +1294,13 @@ class ReaderViewModel @JvmOverloads constructor(
 
         return imageSaver.save(
             image = Image.Page(
-                inputStream = { ImageUtil.mergeBitmaps(imageBitmap, imageBitmap2, isLTR, 0, bg).inputStream() },
+                inputStream = {
+                    val mergedBitmap = ImageUtil.mergeBitmaps(imageBitmap, imageBitmap2, isLTR, 0, bg)
+                    val buffer = Buffer()
+                    mergedBitmap.compress(Bitmap.CompressFormat.JPEG, 100, buffer.outputStream())
+                    mergedBitmap.recycle()
+                    buffer.inputStream()
+                },
                 name = filename,
                 location = location,
             ),

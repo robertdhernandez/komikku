@@ -765,7 +765,7 @@ object ImageUtil {
         centerMargin: Int,
         @ColorInt background: Int = Color.WHITE,
         progressCallback: ((Int) -> Unit)? = null,
-    ): BufferedSource {
+    ): Bitmap {
         val height = imageBitmap.height
         val width = imageBitmap.width
         val height2 = imageBitmap2.height
@@ -784,6 +784,7 @@ object ImageUtil {
         )
 
         canvas.drawBitmap(imageBitmap, imageBitmap.rect, upperPart, null)
+        imageBitmap.recycle()
         progressCallback?.invoke(98)
         val bottomPart = Rect(
             if (!isLTR) 0 else width + centerMargin,
@@ -793,12 +794,11 @@ object ImageUtil {
         )
 
         canvas.drawBitmap(imageBitmap2, imageBitmap2.rect, bottomPart, null)
+        imageBitmap2.recycle()
         progressCallback?.invoke(99)
 
-        val output = Buffer()
-        result.compress(Bitmap.CompressFormat.JPEG, 100, output.outputStream())
         progressCallback?.invoke(100)
-        return output
+        return result
     }
 
     private val Bitmap.rect: Rect

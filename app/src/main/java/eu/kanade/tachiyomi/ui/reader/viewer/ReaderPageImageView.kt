@@ -341,6 +341,7 @@ open class ReaderPageImageView @JvmOverloads constructor(
 
         when (data) {
             is BitmapDrawable -> {
+                setHardwareConfig(ImageUtil.canUseHardwareBitmap(data.bitmap))
                 setImage(ImageSource.bitmap(data.bitmap))
                 isVisible = true
             }

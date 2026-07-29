@@ -3,8 +3,11 @@ package eu.kanade.tachiyomi.ui.reader.viewer.pager
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.drawable.BitmapDrawable
+import android.graphics.drawable.Drawable
 import android.view.LayoutInflater
 import androidx.annotation.ColorInt
+import androidx.core.graphics.drawable.toDrawable
 import androidx.core.view.isVisible
 import eu.kanade.presentation.util.formattedMessage
 import eu.kanade.tachiyomi.databinding.ReaderErrorBinding
@@ -181,7 +184,7 @@ class PagerPageHolder(
         val streamFn2 = extraPage?.stream
 
         try {
-            val (source, isAnimated, background) = withIOContext {
+            val (itemSource, isAnimated, background) = withIOContext {
                 streamFn().buffered(16).use { source ->
                     // SY -->
                     if (extraPage != null) {
@@ -196,9 +199,15 @@ class PagerPageHolder(
                             mergePages(Buffer().readFrom(source), source2?.let { Buffer().readFrom(it) })
                         }
                         // SY <--
-                        val isAnimated = ImageUtil.isAnimatedAndSupported(itemSource)
-                        val background = if (!isAnimated && viewer.config.automaticBackground) {
+                        val isAnimated = if (itemSource is BufferedSource) {
+                            ImageUtil.isAnimatedAndSupported(itemSource)
+                        } else {
+                            false
+                        }
+                        val background = if (!isAnimated && viewer.config.automaticBackground && itemSource is BufferedSource) {
                             ImageUtil.chooseBackground(context, itemSource.peek())
+                        } else if (!isAnimated && viewer.config.automaticBackground) {
+                            viewer.config.pageCanvasColor.toDrawable()
                         } else {
                             null
                         }
@@ -207,22 +216,39 @@ class PagerPageHolder(
                 }
             }
             withUIContext {
-                setImage(
-                    source,
-                    isAnimated,
-                    Config(
-                        zoomDuration = viewer.config.doubleTapAnimDuration,
-                        minimumScaleType = viewer.config.imageScaleType,
-                        cropBorders = viewer.config.imageCropBorders,
-                        zoomStartPosition = viewer.config.imageZoomType,
-                        landscapeZoom = viewer.config.landscapeZoom,
-                        // KMK -->
-                        disableZoomIn = viewer.config.disableZoomIn,
-                        doubleTapZoom = viewer.config.doubleTapZoom,
-                        landscapeZoomScaleType = viewer.config.landscapeZoomScaleType,
-                        // KMK <--
-                    ),
-                )
+                when (itemSource) {
+                    is BufferedSource -> setImage(
+                        itemSource,
+                        isAnimated,
+                        Config(
+                            zoomDuration = viewer.config.doubleTapAnimDuration,
+                            minimumScaleType = viewer.config.imageScaleType,
+                            cropBorders = viewer.config.imageCropBorders,
+                            zoomStartPosition = viewer.config.imageZoomType,
+                            landscapeZoom = viewer.config.landscapeZoom,
+                            // KMK -->
+                            disableZoomIn = viewer.config.disableZoomIn,
+                            doubleTapZoom = viewer.config.doubleTapZoom,
+                            landscapeZoomScaleType = viewer.config.landscapeZoomScaleType,
+                            // KMK <--
+                        ),
+                    )
+                    is Drawable -> setImage(
+                        itemSource,
+                        Config(
+                            zoomDuration = viewer.config.doubleTapAnimDuration,
+                            minimumScaleType = viewer.config.imageScaleType,
+                            cropBorders = viewer.config.imageCropBorders,
+                            zoomStartPosition = viewer.config.imageZoomType,
+                            landscapeZoom = viewer.config.landscapeZoom,
+                            // KMK -->
+                            disableZoomIn = viewer.config.disableZoomIn,
+                            doubleTapZoom = viewer.config.doubleTapZoom,
+                            landscapeZoomScaleType = viewer.config.landscapeZoomScaleType,
+                            // KMK <--
+                        ),
+                    )
+                }
                 if (!isAnimated) {
                     pageBackground = background
                 }
@@ -269,7 +295,7 @@ class PagerPageHolder(
         }
     }
 
-    private fun mergePages(imageSource: BufferedSource, imageSource2: BufferedSource?): BufferedSource {
+    private fun mergePages(imageSource: BufferedSource, imageSource2: BufferedSource?): Any {
         // Handle adding a center margin to wide images if requested
         if (imageSource2 == null) {
             return handleWideImage(imageSource)
@@ -329,9 +355,12 @@ class PagerPageHolder(
         imageSource.close()
         imageSource2.close()
 
-        return ImageUtil.mergeBitmaps(imageBitmap, imageBitmap2, isLTR, centerMargin, viewer.config.pageCanvasColor) {
-            updateProgress(it)
-        }
+        return BitmapDrawable(
+            context.resources,
+            ImageUtil.mergeBitmaps(imageBitmap, imageBitmap2, isLTR, centerMargin, viewer.config.pageCanvasColor) {
+                updateProgress(it)
+            },
+        )
     }
 
     private fun handleWideImage(imageSource: BufferedSource): BufferedSource {
